@@ -1,50 +1,55 @@
 -- MyActionBars: Rearranges action buttons into Logitech G13 layout
--- Uses ActionButton1-12 (main bar) + MultiBarBottomLeftButton1-10 (bar 2) = 22 buttons
+-- Uses ActionButton1-12 + MultiBarBottomLeftButton1-12 = 24 buttons (action bars 1 & 2)
 
 local ADDON_NAME = "MyActionBars"
 
 local BUTTON_SIZE = 36
-local BUTTON_GAP = 4
-local BUTTON_SPACING = BUTTON_SIZE + BUTTON_GAP -- 40
+local BUTTON_GAP = 9
+local BUTTON_SPACING = BUTTON_SIZE + BUTTON_GAP -- 45
 
--- G13 Layout: 22 keys in staggered rows
+-- G13 Layout: 22 keys + 2 mouse buttons
 -- Row 1: G1-G7   (7 keys)
--- Row 2: G8-G14  (7 keys, staggered right)
--- Row 3: G15-G19 (5 keys, staggered more)
--- Row 4: G20-G22 (3 keys, staggered most)
+-- Row 2: G8-G14  (7 keys, aligned with row 1)
+-- Row 3: G15-G19 (5 keys, aligned)
+-- Row 4: G20-G22 (3 keys, aligned)
+-- Mouse buttons on the right
 
 -- Position table: {x, y} offsets from container's BOTTOMLEFT
--- x increases right, y increases up
+-- x increases right, y increases up (using 45px spacing)
 local G13_LAYOUT = {
     -- Row 1 (top): G1-G7
-    { 0, 120 },   -- G1  -> ActionButton1
-    { 40, 120 },  -- G2  -> ActionButton2
-    { 80, 120 },  -- G3  -> ActionButton3
-    { 120, 120 }, -- G4  -> ActionButton4
-    { 160, 120 }, -- G5  -> ActionButton5
-    { 200, 120 }, -- G6  -> ActionButton6
-    { 240, 120 }, -- G7  -> ActionButton7
+    { 0, 135 },   -- G1  -> ActionButton1
+    { 45, 135 },  -- G2  -> ActionButton2
+    { 90, 135 },  -- G3  -> ActionButton3
+    { 135, 135 }, -- G4  -> ActionButton4
+    { 180, 135 }, -- G5  -> ActionButton5
+    { 225, 135 }, -- G6  -> ActionButton6
+    { 270, 135 }, -- G7  -> ActionButton7
 
-    -- Row 2: G8-G14 (staggered ~20px right)
-    { 20, 80 },   -- G8  -> ActionButton8
-    { 60, 80 },   -- G9  -> ActionButton9
-    { 100, 80 },  -- G10 -> ActionButton10
-    { 140, 80 },  -- G11 -> ActionButton11
-    { 180, 80 },  -- G12 -> ActionButton12
-    { 220, 80 },  -- G13 -> MultiBarBottomLeftButton1
-    { 260, 80 },  -- G14 -> MultiBarBottomLeftButton2
+    -- Row 2: G8-G14 (aligned with row 1)
+    { 0, 90 },    -- G8  -> MultiBarBottomLeftButton1 (bar 2)
+    { 45, 90 },   -- G9  -> ActionButton8 (bar 1, central)
+    { 90, 90 },   -- G10 -> ActionButton9 (bar 1, central)
+    { 135, 90 },  -- G11 -> ActionButton10 (bar 1, central)
+    { 180, 90 },  -- G12 -> ActionButton11 (bar 1, central)
+    { 225, 90 },  -- G13 -> ActionButton12 (bar 1, central)
+    { 270, 90 },  -- G14 -> MultiBarBottomLeftButton2 (bar 2)
 
-    -- Row 3: G15-G19 (staggered ~40px right)
-    { 40, 40 },   -- G15 -> MultiBarBottomLeftButton3
-    { 80, 40 },   -- G16 -> MultiBarBottomLeftButton4
-    { 120, 40 },  -- G17 -> MultiBarBottomLeftButton5
-    { 160, 40 },  -- G18 -> MultiBarBottomLeftButton6
-    { 200, 40 },  -- G19 -> MultiBarBottomLeftButton7
+    -- Row 3: G15-G19 (shifted right by 1 button)
+    { 45, 45 },   -- G15 -> MultiBarBottomLeftButton3
+    { 90, 45 },   -- G16 -> MultiBarBottomLeftButton4
+    { 135, 45 },  -- G17 -> MultiBarBottomLeftButton5
+    { 180, 45 },  -- G18 -> MultiBarBottomLeftButton6
+    { 225, 45 },  -- G19 -> MultiBarBottomLeftButton7
 
-    -- Row 4 (bottom): G20-G22 (staggered ~80px right)
-    { 80, 0 },    -- G20 -> MultiBarBottomLeftButton8
-    { 120, 0 },   -- G21 -> MultiBarBottomLeftButton9
-    { 160, 0 },   -- G22 -> MultiBarBottomLeftButton10
+    -- Row 4 (bottom): G20-G22 (shifted right by 1 button)
+    { 90, 0 },    -- G20 -> MultiBarBottomLeftButton8
+    { 135, 0 },   -- G21 -> MultiBarBottomLeftButton9
+    { 180, 0 },   -- G22 -> MultiBarBottomLeftButton10
+
+    -- Extra buttons (bottom right, for mouse buttons)
+    { 270, 45 },  -- Mouse1 -> MultiBarBottomLeftButton11
+    { 270, 0 },   -- Mouse2 -> MultiBarBottomLeftButton12
 }
 
 -- Map G13 positions to actual button frames
@@ -56,13 +61,13 @@ local BUTTON_MAP = {
     "ActionButton5",
     "ActionButton6",
     "ActionButton7",
-    "ActionButton8",
-    "ActionButton9",
-    "ActionButton10",
-    "ActionButton11",
-    "ActionButton12",
-    "MultiBarBottomLeftButton1",
-    "MultiBarBottomLeftButton2",
+    "MultiBarBottomLeftButton1",  -- G8 (bar 2)
+    "ActionButton8",              -- G9 (bar 1, central)
+    "ActionButton9",              -- G10 (bar 1, central)
+    "ActionButton10",             -- G11 (bar 1, central)
+    "ActionButton11",             -- G12 (bar 1, central)
+    "ActionButton12",             -- G13 (bar 1, central)
+    "MultiBarBottomLeftButton2",  -- G14 (bar 2)
     "MultiBarBottomLeftButton3",
     "MultiBarBottomLeftButton4",
     "MultiBarBottomLeftButton5",
@@ -71,6 +76,8 @@ local BUTTON_MAP = {
     "MultiBarBottomLeftButton8",
     "MultiBarBottomLeftButton9",
     "MultiBarBottomLeftButton10",
+    "MultiBarBottomLeftButton11",
+    "MultiBarBottomLeftButton12",
 }
 
 -- Default saved variables
@@ -81,14 +88,14 @@ local defaults = {
 
 -- Create container frame for G13 layout
 local G13Frame = CreateFrame("Frame", "MyActionBarsG13Frame", UIParent)
-G13Frame:SetSize(300, 160)
+G13Frame:SetSize(320, 180)
 G13Frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 50)
 G13Frame:SetMovable(true)
 G13Frame:SetClampedToScreen(true)
 
 -- Create drag handle above the action bar
 local DragHandle = CreateFrame("Frame", "MyActionBarsDragHandle", G13Frame, "BackdropTemplate")
-DragHandle:SetSize(280, 16)
+DragHandle:SetSize(300, 16)
 DragHandle:SetPoint("BOTTOM", G13Frame, "TOP", 0, 2)
 DragHandle:SetBackdrop({
     bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -202,14 +209,12 @@ end
 local function HideDefaultBars()
     -- Hide MainMenuBar artwork
     if MainMenuBar then
-        -- Hide background and artwork textures
         local regions = {MainMenuBar:GetRegions()}
         for _, region in ipairs(regions) do
             if region and region.GetObjectType and region:GetObjectType() == "Texture" then
                 region:SetAlpha(0)
             end
         end
-        -- Also hide the art frame if it exists
         if MainMenuBar.ArtFrame then
             MainMenuBar.ArtFrame:SetAlpha(0)
         end
@@ -243,6 +248,18 @@ local function SetupG13Layout()
     -- Don't run if already set up
     if setupComplete then
         return true
+    end
+
+    -- Match the scale of the original action bar (respects Edit Mode settings)
+    local refButton = _G["ActionButton1"]
+    if refButton then
+        local originalParent = refButton:GetParent()
+        if originalParent and originalParent.GetScale then
+            local scale = originalParent:GetScale()
+            if scale and scale > 0 then
+                G13Frame:SetScale(scale)
+            end
+        end
     end
 
     -- Position all 22 buttons
