@@ -84,6 +84,7 @@ local BUTTON_MAP = {
 local defaults = {
     position = { point = "BOTTOM", relativePoint = "BOTTOM", x = 0, y = 50 },
     locked = true,
+    editMode = {}, -- EditModeExpanded storage for position/scale per profile
 }
 
 -- Create container frame for G13 layout
@@ -281,6 +282,51 @@ local function SetupG13Layout()
     return true
 end
 
+-- Edit Mode integration using EditModeExpanded-1.0 library
+local editModeRegistered = false
+local function RegisterWithEditMode()
+    if editModeRegistered then return true end
+
+    -- Check if LibStub is available
+    if not LibStub then
+        print(ADDON_NAME .. ": LibStub not found")
+        return false
+    end
+
+    -- Check if EditModeExpanded-1.0 is available
+    local lib = LibStub("EditModeExpanded-1.0", true)
+    if not lib then
+        print(ADDON_NAME .. ": EditModeExpanded-1.0 library not found (addon may not be installed)")
+        return false
+    end
+
+    -- Ensure db is initialized with type validation
+    if not MyActionBarsDB then
+        print(ADDON_NAME .. ": Warning - Cannot register Edit Mode (DB not initialized)")
+        return false
+    end
+    if not MyActionBarsDB.editMode or type(MyActionBarsDB.editMode) ~= "table" then
+        MyActionBarsDB.editMode = {}
+    end
+
+    -- Register G13Frame with Edit Mode using protected call for error handling
+    local success, err = pcall(function()
+        -- Parameters: frame, name, db, anchorTo, anchorPoint, clamped
+        lib:RegisterFrame(G13Frame, "MyActionBars", MyActionBarsDB.editMode, UIParent, "BOTTOMLEFT", true)
+        -- Add scale slider (values are percentages: 50 = 0.5x, 100 = 1.0x, 200 = 2.0x)
+        lib:RegisterResizable(G13Frame, 50, 200, 5)
+    end)
+
+    if not success then
+        print(ADDON_NAME .. ": Edit Mode registration failed - " .. tostring(err))
+        return false
+    end
+
+    editModeRegistered = true
+    print(ADDON_NAME .. ": Edit Mode integration enabled")
+    return true
+end
+
 -- Slash commands
 SLASH_MYACTIONBARS1 = "/myactionbars"
 SLASH_MYACTIONBARS2 = "/mab"
@@ -318,6 +364,7 @@ end
 local EventFrame = CreateFrame("Frame")
 EventFrame:RegisterEvent("ADDON_LOADED")
 EventFrame:RegisterEvent("PLAYER_LOGIN")
+EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 EventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 EventFrame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
@@ -342,6 +389,12 @@ EventFrame:SetScript("OnEvent", function(self, event, arg1)
             else
                 setupPending = true
             end
+        end)
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        -- Register with Edit Mode after EditModeExpanded has initialized
+        -- Use a small delay to ensure EditModeExpanded's PLAYER_ENTERING_WORLD handler runs first
+        C_Timer.After(0.5, function()
+            RegisterWithEditMode()
         end)
     elseif event == "PLAYER_REGEN_ENABLED" and setupPending then
         -- Combat ended and we have pending setup
