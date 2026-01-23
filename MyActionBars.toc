@@ -1,9 +1,6 @@
-## Interface: 100005
-
-## Title: A My Action Bars
-
-## Notes: Action Bar Addon
-
+## Interface: 120000
+## Title: MyActionBars
+## Notes: Rearranges action bar buttons into a Logitech G13 keyboard layout
 ## Version: 1.0.0
 ## Author: Flamage
 
