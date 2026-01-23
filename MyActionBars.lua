@@ -73,15 +73,97 @@ local BUTTON_MAP = {
     "MultiBarBottomLeftButton10",
 }
 
+-- Default saved variables
+local defaults = {
+    position = { point = "BOTTOM", relativePoint = "BOTTOM", x = 0, y = 50 },
+    locked = true,
+}
+
 -- Create container frame for G13 layout
 local G13Frame = CreateFrame("Frame", "MyActionBarsG13Frame", UIParent)
 G13Frame:SetSize(300, 160)
 G13Frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 50)
+G13Frame:SetMovable(true)
+G13Frame:SetClampedToScreen(true)
+
+-- Create drag handle above the action bar
+local DragHandle = CreateFrame("Frame", "MyActionBarsDragHandle", G13Frame, "BackdropTemplate")
+DragHandle:SetSize(280, 16)
+DragHandle:SetPoint("BOTTOM", G13Frame, "TOP", 0, 2)
+DragHandle:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 12,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+DragHandle:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
+DragHandle:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+DragHandle:EnableMouse(true)
+DragHandle:RegisterForDrag("LeftButton")
+DragHandle:Hide() -- Hidden by default (locked)
+
+-- Add label to drag handle
+local DragLabel = DragHandle:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+DragLabel:SetPoint("CENTER")
+DragLabel:SetText("Drag to move | /mab lock")
+DragLabel:SetTextColor(0.7, 0.7, 0.7)
+
+-- Drag handle scripts
+DragHandle:SetScript("OnDragStart", function(self)
+    if not InCombatLockdown() then
+        G13Frame:StartMoving()
+    end
+end)
+
+DragHandle:SetScript("OnDragStop", function(self)
+    G13Frame:StopMovingOrSizing()
+    -- Save position
+    local point, _, relativePoint, x, y = G13Frame:GetPoint()
+    if MyActionBarsDB then
+        MyActionBarsDB.position = {
+            point = point,
+            relativePoint = relativePoint,
+            x = x,
+            y = y,
+        }
+    end
+end)
 
 -- State tracking
 local setupComplete = false
 local setupPending = false
 local originalSetPoints = {}
+
+-- Function to toggle lock state
+local function ToggleLock()
+    if not MyActionBarsDB then return end
+
+    MyActionBarsDB.locked = not MyActionBarsDB.locked
+
+    if MyActionBarsDB.locked then
+        DragHandle:Hide()
+        print(ADDON_NAME .. ": Locked. Use /mab unlock to move.")
+    else
+        DragHandle:Show()
+        print(ADDON_NAME .. ": Unlocked. Drag the handle to move.")
+    end
+end
+
+-- Function to restore saved position
+local function RestorePosition()
+    if not MyActionBarsDB or not MyActionBarsDB.position then return end
+
+    local pos = MyActionBarsDB.position
+    G13Frame:ClearAllPoints()
+    G13Frame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
+
+    -- Update lock state
+    if MyActionBarsDB.locked then
+        DragHandle:Hide()
+    else
+        DragHandle:Show()
+    end
+end
 
 -- Function to position a button at a G13 slot
 local function PositionButton(buttonName, x, y)
@@ -182,14 +264,62 @@ local function SetupG13Layout()
     return true
 end
 
+-- Slash commands
+SLASH_MYACTIONBARS1 = "/myactionbars"
+SLASH_MYACTIONBARS2 = "/mab"
+SlashCmdList["MYACTIONBARS"] = function(msg)
+    local cmd = string.lower(msg or "")
+
+    if cmd == "unlock" then
+        if MyActionBarsDB then
+            MyActionBarsDB.locked = true -- Set to locked so toggle will unlock
+            ToggleLock()
+        end
+    elseif cmd == "lock" then
+        if MyActionBarsDB then
+            MyActionBarsDB.locked = false -- Set to unlocked so toggle will lock
+            ToggleLock()
+        end
+    elseif cmd == "toggle" then
+        ToggleLock()
+    elseif cmd == "reset" then
+        if MyActionBarsDB then
+            MyActionBarsDB.position = defaults.position
+            RestorePosition()
+            print(ADDON_NAME .. ": Position reset to default.")
+        end
+    else
+        print(ADDON_NAME .. " commands:")
+        print("  /mab unlock - Show drag handle to move")
+        print("  /mab lock - Hide drag handle")
+        print("  /mab toggle - Toggle lock state")
+        print("  /mab reset - Reset position to default")
+    end
+end
+
 -- Create event frame to trigger setup at right time
 local EventFrame = CreateFrame("Frame")
+EventFrame:RegisterEvent("ADDON_LOADED")
 EventFrame:RegisterEvent("PLAYER_LOGIN")
 EventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-EventFrame:SetScript("OnEvent", function(self, event)
-    if event == "PLAYER_LOGIN" then
+EventFrame:SetScript("OnEvent", function(self, event, arg1)
+    if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
+        -- Initialize saved variables
+        if not MyActionBarsDB then
+            MyActionBarsDB = {}
+        end
+        -- Apply defaults for missing values
+        for k, v in pairs(defaults) do
+            if MyActionBarsDB[k] == nil then
+                MyActionBarsDB[k] = v
+            end
+        end
+    elseif event == "PLAYER_LOGIN" then
         -- Delay to ensure all UI elements are loaded
         C_Timer.After(1.0, function()
+            -- Restore saved position
+            RestorePosition()
+
             if not InCombatLockdown() then
                 SetupG13Layout()
             else
