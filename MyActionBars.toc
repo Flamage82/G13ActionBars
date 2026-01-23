@@ -1,0 +1,10 @@
+## Interface: 100005
+
+## Title: A My Action Bars
+
+## Notes: Action Bar Addon
+
+## Version: 1.0.0
+## Author: Flamage
+
+MyActionBars.lua
