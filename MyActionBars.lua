@@ -85,7 +85,16 @@ local defaults = {
     position = { point = "BOTTOM", relativePoint = "BOTTOM", x = 0, y = 50 },
     locked = true,
     editMode = {}, -- EditModeExpanded storage for position/scale per profile
+    combatFade = false, -- Fade top two rows in combat to train cooldown tracking
 }
+
+-- Combat fade state
+local FADE_ALPHA = 0.2
+local FADE_ROWS_COUNT = 14 -- First 14 buttons = rows 1 & 2 (G1-G14)
+local combatFadeHooked = false
+local isHoveringFadeButton = false
+local inCombat = false
+local fadeLeaveTimer = nil
 
 -- Create container frame for G13 layout
 local G13Frame = CreateFrame("Frame", "MyActionBarsG13Frame", UIParent)
@@ -171,6 +180,59 @@ local function RestorePosition()
     else
         DragHandle:Show()
     end
+end
+
+-- Combat fade: set alpha on top two rows
+local function SetFadeRowsAlpha(alpha)
+    for i = 1, FADE_ROWS_COUNT do
+        local button = _G[BUTTON_MAP[i]]
+        if button then
+            button:SetAlpha(alpha)
+        end
+    end
+end
+
+-- Called when entering/leaving combat or hover state changes
+local function UpdateCombatFade()
+    if not MyActionBarsDB or not MyActionBarsDB.combatFade then return end
+
+    if inCombat and not isHoveringFadeButton then
+        SetFadeRowsAlpha(FADE_ALPHA)
+    else
+        SetFadeRowsAlpha(1.0)
+    end
+end
+
+-- Hook OnEnter/OnLeave on top-row buttons for hover detection
+local function HookCombatFadeButtons()
+    if combatFadeHooked then return end
+
+    for i = 1, FADE_ROWS_COUNT do
+        local button = _G[BUTTON_MAP[i]]
+        if button then
+            button:HookScript("OnEnter", function()
+                if not MyActionBarsDB or not MyActionBarsDB.combatFade then return end
+                isHoveringFadeButton = true
+                if fadeLeaveTimer then
+                    fadeLeaveTimer:Cancel()
+                    fadeLeaveTimer = nil
+                end
+                UpdateCombatFade()
+            end)
+            button:HookScript("OnLeave", function()
+                if not MyActionBarsDB or not MyActionBarsDB.combatFade then return end
+                -- Small delay to avoid flicker when moving between adjacent buttons
+                if fadeLeaveTimer then fadeLeaveTimer:Cancel() end
+                fadeLeaveTimer = C_Timer.NewTimer(0.1, function()
+                    isHoveringFadeButton = false
+                    fadeLeaveTimer = nil
+                    UpdateCombatFade()
+                end)
+            end)
+        end
+    end
+
+    combatFadeHooked = true
 end
 
 -- Function to position a button at a G13 slot
@@ -345,6 +407,18 @@ SlashCmdList["MYACTIONBARS"] = function(msg)
         end
     elseif cmd == "toggle" then
         ToggleLock()
+    elseif cmd == "fade" then
+        if MyActionBarsDB then
+            MyActionBarsDB.combatFade = not MyActionBarsDB.combatFade
+            if MyActionBarsDB.combatFade then
+                HookCombatFadeButtons()
+                print(ADDON_NAME .. ": Combat fade ON - Top rows fade to " .. (FADE_ALPHA * 100) .. "% in combat. Hover to reveal.")
+            else
+                -- Restore full opacity immediately
+                SetFadeRowsAlpha(1.0)
+                print(ADDON_NAME .. ": Combat fade OFF.")
+            end
+        end
     elseif cmd == "reset" then
         if MyActionBarsDB then
             MyActionBarsDB.position = defaults.position
@@ -356,6 +430,7 @@ SlashCmdList["MYACTIONBARS"] = function(msg)
         print("  /mab unlock - Show drag handle to move")
         print("  /mab lock - Hide drag handle")
         print("  /mab toggle - Toggle lock state")
+        print("  /mab fade - Toggle combat fade (top rows)")
         print("  /mab reset - Reset position to default")
     end
 end
@@ -366,6 +441,7 @@ EventFrame:RegisterEvent("ADDON_LOADED")
 EventFrame:RegisterEvent("PLAYER_LOGIN")
 EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 EventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+EventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 EventFrame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         -- Initialize saved variables
@@ -389,6 +465,11 @@ EventFrame:SetScript("OnEvent", function(self, event, arg1)
             else
                 setupPending = true
             end
+
+            -- Hook fade buttons if combat fade was previously enabled
+            if MyActionBarsDB.combatFade then
+                HookCombatFadeButtons()
+            end
         end)
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- Register with Edit Mode after EditModeExpanded has initialized
@@ -396,8 +477,17 @@ EventFrame:SetScript("OnEvent", function(self, event, arg1)
         C_Timer.After(0.5, function()
             RegisterWithEditMode()
         end)
-    elseif event == "PLAYER_REGEN_ENABLED" and setupPending then
-        -- Combat ended and we have pending setup
-        SetupG13Layout()
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        -- Entering combat
+        inCombat = true
+        UpdateCombatFade()
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        -- Leaving combat
+        inCombat = false
+        isHoveringFadeButton = false
+        UpdateCombatFade()
+        if setupPending then
+            SetupG13Layout()
+        end
     end
 end)
