@@ -96,6 +96,10 @@ local isHoveringFadeButton = false
 local inCombat = false
 local fadeLeaveTimer = nil
 
+-- Hover reveal state (shows the layout while a UI fader such as Cinematic has faded the main bar)
+local hoverRevealHooked = false
+local hoverRevealTimer = nil
+
 -- Create container frame for G13 layout
 local G13Frame = CreateFrame("Frame", "MyActionBarsG13Frame", UIParent)
 G13Frame:SetSize(320, 180)
@@ -235,6 +239,36 @@ local function HookCombatFadeButtons()
     combatFadeHooked = true
 end
 
+-- Hook OnEnter/OnLeave on all buttons so hovering the layout reveals it.
+-- Cinematic only counts the mouse as over the main bar inside that bar's own
+-- rect, so hovering the G13 layout elsewhere wouldn't bring it back.
+local function HookHoverReveal()
+    if hoverRevealHooked or not G13Frame.SetIgnoreParentAlpha then return end
+
+    for _, buttonName in ipairs(BUTTON_MAP) do
+        local button = _G[buttonName]
+        if button then
+            button:HookScript("OnEnter", function()
+                if hoverRevealTimer then
+                    hoverRevealTimer:Cancel()
+                    hoverRevealTimer = nil
+                end
+                G13Frame:SetIgnoreParentAlpha(true)
+            end)
+            button:HookScript("OnLeave", function()
+                -- Small delay to avoid flicker when moving between adjacent buttons
+                if hoverRevealTimer then hoverRevealTimer:Cancel() end
+                hoverRevealTimer = C_Timer.NewTimer(0.1, function()
+                    hoverRevealTimer = nil
+                    G13Frame:SetIgnoreParentAlpha(false)
+                end)
+            end)
+        end
+    end
+
+    hoverRevealHooked = true
+end
+
 -- Function to position a button at a G13 slot
 local function PositionButton(buttonName, x, y)
     local button = _G[buttonName]
@@ -313,16 +347,12 @@ local function SetupG13Layout()
         return true
     end
 
-    -- Match the scale of the original action bar (respects Edit Mode settings)
-    local refButton = _G["ActionButton1"]
-    if refButton then
-        local originalParent = refButton:GetParent()
-        if originalParent and originalParent.GetScale then
-            local scale = originalParent:GetScale()
-            if scale and scale > 0 then
-                G13Frame:SetScale(scale)
-            end
-        end
+    -- Parent the container to the game's main action bar so it inherits that
+    -- bar's scale (Edit Mode), visibility and alpha. UI faders such as Cinematic
+    -- fade the main bar, so the G13 layout fades with the rest of the UI.
+    local mainBar = _G["MainActionBar"] or _G["MainMenuBar"]
+    if mainBar then
+        G13Frame:SetParent(mainBar)
     end
 
     -- Position all 22 buttons
@@ -336,6 +366,8 @@ local function SetupG13Layout()
 
     -- Hide default bar artwork
     HideDefaultBars()
+
+    HookHoverReveal()
 
     setupComplete = true
     setupPending = false
